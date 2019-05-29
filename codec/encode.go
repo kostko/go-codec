@@ -595,7 +595,7 @@ func (e *Encoder) kSlice(f *codecFnInfo, rv reflect.Value) {
 		// encoding type, because preEncodeValue may break it down to
 		// a concrete type and kInterface will bomb.
 		if rtelem.Kind() != reflect.Interface {
-			fn = e.h.fn(rtelem, true, true)
+			fn = e.h.fn(rtelem, true, true, true)
 		}
 		for j := 0; j < l; j++ {
 			if mbs {
@@ -607,7 +607,7 @@ func (e *Encoder) kSlice(f *codecFnInfo, rv reflect.Value) {
 			} else {
 				e.arrayElem()
 			}
-			e.encodeValue(rv.Index(j), fn, true)
+			e.encodeValue(rv.Index(j), fn, true, true)
 		}
 	}
 
@@ -692,7 +692,7 @@ func (e *Encoder) kStructNoOmitempty(f *codecFnInfo, rv reflect.Value) {
 		e.arrayStart(len(f.ti.sfiSrc))
 		for _, si := range f.ti.sfiSrc {
 			e.arrayElem()
-			e.encodeValue(sfn.field(si), nil, true)
+			e.encodeValue(sfn.field(si), nil, true, true)
 		}
 		e.arrayEnd()
 	} else {
@@ -701,7 +701,7 @@ func (e *Encoder) kStructNoOmitempty(f *codecFnInfo, rv reflect.Value) {
 			e.mapElemKey()
 			e.kStructFieldKey(f.ti.keyType, si.encNameAsciiAlphaNum, si.encName)
 			e.mapElemValue()
-			e.encodeValue(sfn.field(si), nil, true)
+			e.encodeValue(sfn.field(si), nil, true, true)
 		}
 		e.mapEnd()
 	}
@@ -785,7 +785,7 @@ func (e *Encoder) kStruct(f *codecFnInfo, rv reflect.Value) {
 			e.mapElemKey()
 			e.kStructFieldKey(f.ti.keyType, kv.v.encNameAsciiAlphaNum, kv.v.encName)
 			e.mapElemValue()
-			e.encodeValue(kv.r, nil, true)
+			e.encodeValue(kv.r, nil, true, true)
 		}
 		// now, add the others
 		for k, v := range mf {
@@ -815,7 +815,7 @@ func (e *Encoder) kStruct(f *codecFnInfo, rv reflect.Value) {
 		e.arrayStart(newlen)
 		for j = 0; j < newlen; j++ {
 			e.arrayElem()
-			e.encodeValue(fkvs[j].r, nil, true)
+			e.encodeValue(fkvs[j].r, nil, true, true)
 		}
 		e.arrayEnd()
 	}
@@ -853,7 +853,7 @@ func (e *Encoder) kMap(f *codecFnInfo, rv reflect.Value) {
 		rtval = rtval.Elem()
 	}
 	if rtval.Kind() != reflect.Interface {
-		valFn = e.h.fn(rtval, true, true)
+		valFn = e.h.fn(rtval, true, true, true)
 	}
 	mks := rv.MapKeys()
 
@@ -871,7 +871,7 @@ func (e *Encoder) kMap(f *codecFnInfo, rv reflect.Value) {
 		}
 		if rtkey.Kind() != reflect.Interface {
 			// rtkeyid = rt2id(rtkey)
-			keyFn = e.h.fn(rtkey, true, true)
+			keyFn = e.h.fn(rtkey, true, true, true)
 		}
 	}
 
@@ -885,10 +885,10 @@ func (e *Encoder) kMap(f *codecFnInfo, rv reflect.Value) {
 				e.e.EncodeStringEnc(cUTF8, mks[j].String())
 			}
 		} else {
-			e.encodeValue(mks[j], keyFn, true)
+			e.encodeValue(mks[j], keyFn, true, true)
 		}
 		e.mapElemValue()
-		e.encodeValue(rv.MapIndex(mks[j]), valFn, true)
+		e.encodeValue(rv.MapIndex(mks[j]), valFn, true, true)
 	}
 	e.mapEnd()
 }
@@ -910,7 +910,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.e.EncodeBool(mksv[i].v)
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.String:
 		mksv := make([]stringRv, len(mks))
@@ -928,7 +928,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 				e.e.EncodeStringEnc(cUTF8, mksv[i].v)
 			}
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint, reflect.Uintptr:
 		mksv := make([]uint64Rv, len(mks))
@@ -942,7 +942,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.e.EncodeUint(mksv[i].v)
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
 		mksv := make([]int64Rv, len(mks))
@@ -956,7 +956,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.e.EncodeInt(mksv[i].v)
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.Float32:
 		mksv := make([]float64Rv, len(mks))
@@ -970,7 +970,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.e.EncodeFloat32(float32(mksv[i].v))
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.Float64:
 		mksv := make([]float64Rv, len(mks))
@@ -984,7 +984,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.e.EncodeFloat64(mksv[i].v)
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 		}
 	case reflect.Struct:
 		if rv.Type() == timeTyp {
@@ -999,7 +999,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 				e.mapElemKey()
 				e.e.EncodeTime(mksv[i].v)
 				e.mapElemValue()
-				e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true)
+				e.encodeValue(rv.MapIndex(mksv[i].r), valFn, true, true)
 			}
 			break
 		}
@@ -1022,7 +1022,7 @@ func (e *Encoder) kMapCanonical(rtkey reflect.Type, rv reflect.Value, mks []refl
 			e.mapElemKey()
 			e.asis(mksbv[j].v)
 			e.mapElemValue()
-			e.encodeValue(rv.MapIndex(mksbv[j].r), valFn, true)
+			e.encodeValue(rv.MapIndex(mksbv[j].r), valFn, true, true)
 		}
 	}
 }
@@ -1540,7 +1540,7 @@ func (e *Encoder) encode(iv interface{}) {
 	case Raw:
 		e.rawBytes(v)
 	case reflect.Value:
-		e.encodeValue(v, nil, true)
+		e.encodeValue(v, nil, true, true)
 
 	case string:
 		if e.h.StringToRaw {
@@ -1629,12 +1629,12 @@ func (e *Encoder) encode(iv interface{}) {
 			v.CodecEncodeSelf(e)
 		} else if !fastpathEncodeTypeSwitch(iv, e) {
 			// checkfastpath=true (not false), as underlying slice/map type may be fast-path
-			e.encodeValue(reflect.ValueOf(iv), nil, true)
+			e.encodeValue(reflect.ValueOf(iv), nil, true, true)
 		}
 	}
 }
 
-func (e *Encoder) encodeValue(rv reflect.Value, fn *codecFn, checkFastpath bool) {
+func (e *Encoder) encodeValue(rv reflect.Value, fn *codecFn, checkFastpath, checkExt bool) {
 	// if a valid fn is passed, it MUST BE for the dereferenced type of rv
 
 	// We considered using a uintptr (a pointer) retrievable via rv.UnsafeAddr.
@@ -1685,7 +1685,7 @@ TOP:
 	if fn == nil {
 		rt := rv.Type()
 		// always pass checkCodecSelfer=true, in case T or ****T is passed, where *T is a Selfer
-		fn = e.h.fn(rt, checkFastpath, true)
+		fn = e.h.fn(rt, checkFastpath, true, checkExt)
 	}
 	if fn.i.addrE {
 		if rvpValid {

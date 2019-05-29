@@ -5,6 +5,11 @@ package codec
 
 import "sync"
 
+// This extension uses default the serializer/deserializer.
+//
+// This is used by libraries that support InterfaceExt, e.g. cbor, json.
+var GlobalUseDefaultExt InterfaceExt = useDefaultExt{}
+
 // This extension expects that types registered with it implement SelfExt interface.
 //
 // This is used by libraries that support BytesExt e.g. cbor, json.
@@ -131,4 +136,8 @@ func (x selfInterfaceExt) ConvertExt(v interface{}) interface{} {
 
 func (x selfInterfaceExt) UpdateExt(dst interface{}, src interface{}) {
 	dst.(SelfExt).CodecUpdateExt(src)
+}
+
+func (x selfInterfaceExt) UseDefault() bool {
+	return false
 }

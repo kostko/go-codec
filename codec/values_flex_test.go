@@ -135,6 +135,12 @@ type missingFielderT2 struct {
 	I int64
 }
 
+type TestUseDefaultExt struct {
+	S string
+	I int64
+	B bool
+}
+
 type testSelfExtHelper struct {
 	S string
 	I int64

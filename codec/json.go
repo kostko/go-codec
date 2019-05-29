@@ -440,10 +440,14 @@ func (e *jsonEncDriver) EncodeTime(t time.Time) {
 }
 
 func (e *jsonEncDriver) EncodeExt(rv interface{}, xtag uint64, ext Ext, en *Encoder) {
-	if v := ext.ConvertExt(rv); v == nil {
-		e.EncodeNil()
+	if ext.UseDefault() {
+		en.encodeValue(reflect.ValueOf(rv), nil, true, false)
 	} else {
-		en.encode(v)
+		if v := ext.ConvertExt(rv); v == nil {
+			e.EncodeNil()
+		} else {
+			en.encode(v)
+		}
 	}
 }
 
@@ -944,6 +948,8 @@ func (d *jsonDecDriver) DecodeExt(rv interface{}, xtag uint64, ext Ext) (realxta
 		re := rv.(*RawExt)
 		re.Tag = xtag
 		d.d.decode(&re.Value)
+	} else if ext.UseDefault() {
+		d.d.decode(&rv)
 	} else {
 		var v interface{}
 		if v2, ok := rv.(SelfExt); ok {

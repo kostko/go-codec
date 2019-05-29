@@ -1268,7 +1268,7 @@ func (d *Decoder) kInterfaceNaked(f *codecFnInfo) (rvn reflect.Value) {
 				rvn = rvn.Elem()
 			} else {
 				rvn = reflect.New(d.h.MapType).Elem()
-				d.decodeValue(rvn, nil, true)
+				d.decodeValue(rvn, nil, true, true)
 			}
 		}
 	case valueTypeArray:
@@ -1288,17 +1288,18 @@ func (d *Decoder) kInterfaceNaked(f *codecFnInfo) (rvn reflect.Value) {
 				rvn = rvn.Elem()
 			} else {
 				rvn = reflect.New(d.h.SliceType).Elem()
-				d.decodeValue(rvn, nil, true)
+				d.decodeValue(rvn, nil, true, true)
 			}
 		}
 	case valueTypeExt:
-		var v interface{}
 		tag, bytes := n.u, n.l // calling decode below might taint the values
-		if bytes == nil {
-			d.decode(&v)
-		}
 		bfn := d.h.getExtForTag(tag)
 		if bfn == nil {
+			var v interface{}
+			if bytes == nil {
+				d.decode(&v)
+			}
+
 			var re RawExt
 			re.Tag = tag
 			re.Data = detachZeroCopyBytes(d.bytes, nil, bytes)
@@ -1309,7 +1310,13 @@ func (d *Decoder) kInterfaceNaked(f *codecFnInfo) (rvn reflect.Value) {
 			if bytes != nil {
 				bfn.ext.ReadExt(rv2i(rvnA), bytes)
 			} else {
-				bfn.ext.UpdateExt(rv2i(rvnA), v)
+				if bfn.ext.UseDefault() {
+					d.decodeValue(rvnA, nil, true, false)
+				} else {
+					var v interface{}
+					d.decode(&v)
+					bfn.ext.UpdateExt(rv2i(rvnA), v)
+				}
 			}
 			rvn = rvnA.Elem()
 		}
@@ -1375,13 +1382,13 @@ func (d *Decoder) kInterface(f *codecFnInfo, rv reflect.Value) {
 
 	rvn2, canDecode := isDecodeable(rvn)
 	if canDecode {
-		d.decodeValue(rvn2, nil, true)
+		d.decodeValue(rvn2, nil, true, true)
 		return
 	}
 
 	rvn2 = reflect.New(rvn.Type()).Elem()
 	rvn2.Set(rvn)
-	d.decodeValue(rvn2, nil, true)
+	d.decodeValue(rvn2, nil, true, true)
 	rv.Set(rvn2)
 }
 
@@ -1433,7 +1440,7 @@ func (d *Decoder) kStruct(f *codecFnInfo, rv reflect.Value) {
 				if dd.TryDecodeAsNil() {
 					si.setToZeroValue(rv)
 				} else {
-					d.decodeValue(sfn.field(si), nil, true)
+					d.decodeValue(sfn.field(si), nil, true, true)
 				}
 			} else if mf != nil {
 				// store rvkencname in new []byte, as it previously shares Decoder.b, which is used in decode
@@ -1477,7 +1484,7 @@ func (d *Decoder) kStruct(f *codecFnInfo, rv reflect.Value) {
 			if dd.TryDecodeAsNil() {
 				si.setToZeroValue(rv)
 			} else {
-				d.decodeValue(sfn.field(si), nil, true)
+				d.decodeValue(sfn.field(si), nil, true, true)
 			}
 		}
 		if (hasLen && containerLen > len(fti.sfiSrc)) || (!hasLen && !checkbreak) {
@@ -1650,9 +1657,9 @@ func (d *Decoder) kSlice(f *codecFnInfo, rv reflect.Value) {
 				rv9 = reflect.New(rtelem0).Elem()
 			}
 			if fn == nil {
-				fn = d.h.fn(rtelem, true, true)
+				fn = d.h.fn(rtelem, true, true, true)
 			}
-			d.decodeValue(rv9, fn, true)
+			d.decodeValue(rv9, fn, true, true)
 			rv.Send(rv9)
 		} else {
 			// if indefinite, etc, then expand the slice if necessary
@@ -1695,9 +1702,9 @@ func (d *Decoder) kSlice(f *codecFnInfo, rv reflect.Value) {
 				}
 
 				if fn == nil {
-					fn = d.h.fn(rtelem, true, true)
+					fn = d.h.fn(rtelem, true, true, true)
 				}
-				d.decodeValue(rv9, fn, true)
+				d.decodeValue(rv9, fn, true, true)
 			}
 		}
 	}
@@ -1801,9 +1808,9 @@ func (d *Decoder) kMap(f *codecFnInfo, rv reflect.Value) {
 			// NOTE: if doing an insert, you MUST use a real string (not stringview)
 		} else {
 			if keyFn == nil {
-				keyFn = d.h.fn(ktypeLo, true, true)
+				keyFn = d.h.fn(ktypeLo, true, true, true)
 			}
-			d.decodeValue(rvk, keyFn, true)
+			d.decodeValue(rvk, keyFn, true, true)
 		}
 		// special case if a byte array.
 		if ktypeIsIntf {
@@ -1869,9 +1876,9 @@ func (d *Decoder) kMap(f *codecFnInfo, rv reflect.Value) {
 			rvk.SetString(d.string(kstrbs))
 		}
 		if valFn == nil {
-			valFn = d.h.fn(vtypeLo, true, true)
+			valFn = d.h.fn(vtypeLo, true, true, true)
 		}
-		d.decodeValue(rvv, valFn, true)
+		d.decodeValue(rvv, valFn, true, true)
 		// d.decodeValueFn(rvv, valFn)
 		if mapSet {
 			rv.SetMapIndex(rvk, rvv)
@@ -2684,7 +2691,7 @@ func (d *Decoder) decode(iv interface{}) {
 	// case Selfer:
 	case reflect.Value:
 		v = d.ensureDecodeable(v)
-		d.decodeValue(v, nil, true)
+		d.decodeValue(v, nil, true, true)
 
 	case *string:
 		*v = d.d.DecodeString()
@@ -2727,7 +2734,7 @@ func (d *Decoder) decode(iv interface{}) {
 		*v = d.rawBytes()
 
 	case *interface{}:
-		d.decodeValue(reflect.ValueOf(iv).Elem(), nil, true)
+		d.decodeValue(reflect.ValueOf(iv).Elem(), nil, true, true)
 		// d.decodeValueNotNil(reflect.ValueOf(iv).Elem())
 
 	default:
@@ -2736,13 +2743,13 @@ func (d *Decoder) decode(iv interface{}) {
 		} else if !fastpathDecodeTypeSwitch(iv, d) {
 			v := reflect.ValueOf(iv)
 			v = d.ensureDecodeable(v)
-			d.decodeValue(v, nil, false)
+			d.decodeValue(v, nil, false, true)
 			// d.decodeValueFallback(v)
 		}
 	}
 }
 
-func (d *Decoder) decodeValue(rv reflect.Value, fn *codecFn, chkAll bool) {
+func (d *Decoder) decodeValue(rv reflect.Value, fn *codecFn, chkAll, checkExt bool) {
 	// If stream is not containing a nil value, then we can deref to the base
 	// non-pointer value, and decode into that.
 	var rvp reflect.Value
@@ -2763,7 +2770,7 @@ func (d *Decoder) decodeValue(rv reflect.Value, fn *codecFn, chkAll bool) {
 
 	if fn == nil {
 		// always pass checkCodecSelfer=true, in case T or ****T is passed, where *T is a Selfer
-		fn = d.h.fn(rv.Type(), chkAll, true) // chkAll, chkAll)
+		fn = d.h.fn(rv.Type(), chkAll, true, checkExt) // chkAll, chkAll)
 	}
 	if fn.i.addrD {
 		if rvpValid {

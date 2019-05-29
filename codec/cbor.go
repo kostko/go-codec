@@ -187,10 +187,14 @@ func (e *cborEncDriver) EncodeTime(t time.Time) {
 
 func (e *cborEncDriver) EncodeExt(rv interface{}, xtag uint64, ext Ext, en *Encoder) {
 	e.encUint(uint64(xtag), cborBaseTag)
-	if v := ext.ConvertExt(rv); v == nil {
-		e.EncodeNil()
+	if ext.UseDefault() {
+		en.encodeValue(reflect.ValueOf(rv), nil, true, false)
 	} else {
-		en.encode(v)
+		if v := ext.ConvertExt(rv); v == nil {
+			e.EncodeNil()
+		} else {
+			en.encode(v)
+		}
 	}
 }
 
@@ -630,6 +634,8 @@ func (d *cborDecDriver) DecodeExt(rv interface{}, xtag uint64, ext Ext) (realxta
 	} else if xtag != realxtag {
 		d.d.errorf("Wrong extension tag. Got %b. Expecting: %v", realxtag, xtag)
 		return
+	} else if ext.UseDefault() {
+		d.d.decode(&rv)
 	} else {
 		var v interface{}
 		if v2, ok := rv.(SelfExt); ok {

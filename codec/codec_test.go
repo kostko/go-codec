@@ -133,6 +133,7 @@ var (
 var wrapInt64Typ = reflect.TypeOf(wrapInt64(0))
 var wrapBytesTyp = reflect.TypeOf(wrapBytes(nil))
 var testSelfExtTyp = reflect.TypeOf((*TestSelfExtImpl)(nil)).Elem()
+var testUseDefaultExtTyp = reflect.TypeOf((*TestUseDefaultExt)(nil)).Elem()
 
 func testByteBuf(in []byte) *bytes.Buffer {
 	return bytes.NewBuffer(in)
@@ -248,6 +249,10 @@ func (x *testUnixNanoTimeExt) UpdateExt(dest interface{}, v interface{}) {
 	}
 }
 
+func (x *testUnixNanoTimeExt) UseDefault() bool {
+	return false
+}
+
 // ----
 
 type wrapInt64Ext int64
@@ -269,6 +274,10 @@ func (x *wrapInt64Ext) ConvertExt(v interface{}) interface{} {
 func (x *wrapInt64Ext) UpdateExt(dest interface{}, v interface{}) {
 	v2 := dest.(*wrapInt64)
 	*v2 = wrapInt64(v.(int64))
+}
+
+func (x *wrapInt64Ext) UseDefault() bool {
+	return false
 }
 
 // ----
@@ -297,6 +306,10 @@ func (x *wrapBytesExt) UpdateExt(dest interface{}, v interface{}) {
 		panic("UpdateExt for wrapBytesExt expects string or []byte")
 	}
 	// *v2 = wrapBytes(v.([]byte))
+}
+
+func (x *wrapBytesExt) UseDefault() bool {
+	return false
 }
 
 // ----
@@ -329,6 +342,10 @@ func (x timeExt) ConvertExt(v interface{}) interface{} {
 }
 func (x timeExt) UpdateExt(v interface{}, src interface{}) {
 	x.ReadExt(v, src.([]byte))
+}
+
+func (x timeExt) UseDefault() bool {
+	return false
 }
 
 // ----
@@ -431,6 +448,10 @@ func testInit() {
 	chkErr(testJsonH.SetInterfaceExt(testSelfExtTyp, 78, GlobalSelfInterfaceExt))
 	chkErr(testCborH.SetInterfaceExt(testSelfExtTyp, 78, GlobalSelfInterfaceExt))
 
+	// Add extensions for the testUseDefaultExt
+	chkErr(testJsonH.SetInterfaceExt(testUseDefaultExtTyp, 79, GlobalUseDefaultExt))
+	chkErr(testCborH.SetInterfaceExt(testUseDefaultExtTyp, 79, GlobalUseDefaultExt))
+
 	// Now, add extensions for the type wrapInt64 and wrapBytes,
 	// so we can execute the Encode/Decode Ext paths.
 
@@ -504,14 +525,14 @@ func testInit() {
 			"int32": int32(32323232),
 			"bool":  true,
 			"LONG STRING": `
-1234567890 1234567890 
-1234567890 1234567890 
-1234567890 1234567890 
-ABCDEDFGHIJKLMNOPQRSTUVWXYZ 
-abcdedfghijklmnopqrstuvwxyz 
-ABCDEDFGHIJKLMNOPQRSTUVWXYZ 
-abcdedfghijklmnopqrstuvwxyz 
-"ABCDEDFGHIJKLMNOPQRSTUVWXYZ" 
+1234567890 1234567890
+1234567890 1234567890
+1234567890 1234567890
+ABCDEDFGHIJKLMNOPQRSTUVWXYZ
+abcdedfghijklmnopqrstuvwxyz
+ABCDEDFGHIJKLMNOPQRSTUVWXYZ
+abcdedfghijklmnopqrstuvwxyz
+"ABCDEDFGHIJKLMNOPQRSTUVWXYZ"
 '	a tab	'
 \a\b\c\d\e
 \b\f\n\r\t all literally
@@ -2493,6 +2514,19 @@ func doTestSelfExt(t *testing.T, name string, h Handle) {
 	testDeepEqualErr(&ts, &ts2, t, name)
 }
 
+func doTestUseDefaultExt(t *testing.T, name string, h Handle) {
+	testOnce.Do(testInitAll)
+	var tud TestUseDefaultExt
+	tud.S = "ugorji"
+	tud.I = 5678
+	tud.B = true
+	var tud2 TestUseDefaultExt
+
+	bs := testMarshalErr(&tud, h, t, name)
+	testUnmarshalErr(&tud2, bs, h, t, name)
+	testDeepEqualErr(&tud, &tud2, t, name)
+}
+
 func doTestBytesEncodedAsArray(t *testing.T, name string, h Handle) {
 	testOnce.Do(testInitAll)
 	// Need to test edge case where bytes are encoded as an array
@@ -3325,6 +3359,14 @@ func TestBincSelfExt(t *testing.T) {
 
 func TestSimpleSelfExt(t *testing.T) {
 	doTestSelfExt(t, "simple", testSimpleH)
+}
+
+func TestJsonUseDefaultExt(t *testing.T) {
+	doTestUseDefaultExt(t, "json", testJsonH)
+}
+
+func TestCborUseDefaultExt(t *testing.T) {
+	doTestUseDefaultExt(t, "cbor", testCborH)
 }
 
 func TestJsonBytesEncodedAsArray(t *testing.T) {

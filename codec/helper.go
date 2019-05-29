@@ -674,10 +674,10 @@ LOOP:
 	return
 }
 
-func (x *BasicHandle) fn(rt reflect.Type, checkFastpath, checkCodecSelfer bool) (fn *codecFn) {
+func (x *BasicHandle) fn(rt reflect.Type, checkFastpath, checkCodecSelfer, checkExt bool) (fn *codecFn) {
 	rtid := rt2id(rt)
 	sp := x.rtidFns.load()
-	if sp != nil {
+	if sp != nil && checkExt {
 		if _, fn = findFn(sp, rtid); fn != nil {
 			// xdebugf("<<<< %c: found fn for %v in rtidfns of size: %v", c.n, rt, len(sp))
 			return
@@ -710,7 +710,7 @@ func (x *BasicHandle) fn(rt reflect.Type, checkFastpath, checkCodecSelfer bool) 
 		fi.addrF = true
 		fi.addrD = true
 		fi.addrE = true
-	} else if xfFn := c.getExt(rtid); xfFn != nil {
+	} else if xfFn := c.getExt(rtid); checkExt && xfFn != nil {
 		fi.xfTag, fi.xfFn = xfFn.tag, xfFn.ext
 		fn.fe = (*Encoder).ext
 		fn.fd = (*Decoder).ext
@@ -841,7 +841,7 @@ func (x *BasicHandle) fn(rt reflect.Type, checkFastpath, checkCodecSelfer bool) 
 				fi.addrD = false
 				rt2 := reflect.SliceOf(ti.elem)
 				fn.fd = func(d *Decoder, xf *codecFnInfo, xrv reflect.Value) {
-					d.h.fn(rt2, true, false).fd(d, xf, xrv.Slice(0, xrv.Len()))
+					d.h.fn(rt2, true, false, true).fd(d, xf, xrv.Slice(0, xrv.Len()))
 				}
 				// fn.fd = (*Decoder).kArray
 			case reflect.Struct:
@@ -968,6 +968,10 @@ type InterfaceExt interface {
 	//
 	// Note: dst is always a pointer kind to the registered extension type.
 	UpdateExt(dst interface{}, src interface{})
+
+	// UseDefault can return true to use the default serializer/deserializer
+	// implementation for this extension.
+	UseDefault() bool
 }
 
 // Ext handles custom (de)serialization of custom types / extensions.
@@ -1004,6 +1008,10 @@ func (x addExtWrapper) UpdateExt(dest interface{}, v interface{}) {
 	x.ReadExt(dest, v.([]byte))
 }
 
+func (x addExtWrapper) UseDefault() bool {
+	return false
+}
+
 type bytesExtFailer struct{}
 
 func (bytesExtFailer) WriteExt(v interface{}) []byte {
@@ -1024,6 +1032,11 @@ func (interfaceExtFailer) UpdateExt(dest interface{}, v interface{}) {
 	panicv.errorstr("InterfaceExt.UpdateExt is not supported")
 }
 
+func (interfaceExtFailer) UseDefault() bool {
+	panicv.errorstr("InterfaceExt.UseDefault is not supported")
+	return false
+}
+
 // type extWrapper struct {
 // 	BytesExt
 // 	InterfaceExt
@@ -1037,6 +1050,20 @@ type bytesExtWrapper struct {
 type interfaceExtWrapper struct {
 	bytesExtFailer
 	InterfaceExt
+}
+
+type useDefaultExt struct{}
+
+func (x useDefaultExt) ConvertExt(v interface{}) interface{} {
+	panic("UseDefault is true, ConvertExt should never be called")
+}
+
+func (x useDefaultExt) UpdateExt(v interface{}, src interface{}) {
+	panic("UseDefault is true, UpdateExt should never be called")
+}
+
+func (x useDefaultExt) UseDefault() bool {
+	return true
 }
 
 type binaryEncodingType struct{}

@@ -77,7 +77,7 @@ func (f genHelperEncoder) IsJSONHandle() bool {
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperEncoder) EncFallback(iv interface{}) {
 	// f.e.encodeI(iv, false, false)
-	f.e.encodeValue(reflect.ValueOf(iv), nil, false)
+	f.e.encodeValue(reflect.ValueOf(iv), nil, false, true)
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
@@ -176,7 +176,7 @@ func (f genHelperDecoder) DecFallback(iv interface{}, chkPtr bool) {
 	if chkPtr {
 		rv = f.d.ensureDecodeable(rv)
 	}
-	f.d.decodeValue(rv, nil, false)
+	f.d.decodeValue(rv, nil, false, true)
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
